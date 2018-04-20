@@ -13,7 +13,7 @@ set(PACKAGE_DEPENDENCIES
   octomap_ros
   octomap_msgs
   dynamic_reconfigure
-  nodelet  
+  nodelet
 )
 
 
@@ -30,12 +30,14 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${OCTOMAP_INCLUDE_DIRS}
 )
-
+set(octomap_INCLUDE_DIRS ${OCTOMAP_INCLUDE_DIRS})
+#include_directories(${octomap_INCLUDE_DIRS})
+##target_link_libraries(${OCTOMAP_LIBRARIES})
 
 generate_dynamic_reconfigure_options(cfg/OctomapServer.cfg)
 
 catkin_package(
-  INCLUDE_DIRS include
+  INCLUDE_DIRS include ${octomap_INCLUDE_DIRS}
   LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS ${PACKAGE_DEPENDENCIES}
   DEPENDS octomap PCL
