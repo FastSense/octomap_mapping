@@ -66,6 +66,8 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
+#include "octomap_msgs/TwoInts.h"
+
 //#define COLOR_OCTOMAP_SERVER // turned off here, turned on identical ColorOctomapServer.h - easier maintenance, only maintain OctomapServer and then copy and paste to ColorOctomapServer and change define. There are prettier ways to do this, but this works for now
 
 #ifdef COLOR_OCTOMAP_SERVER
@@ -97,6 +99,10 @@ public:
 
   virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
   virtual bool openFile(const std::string& filename);
+
+   virtual bool add(octomap_msgs::TwoInts::Request  &req,
+                    octomap_msgs::TwoInts::Response &res);
+
 
 protected:
   inline static void updateMinKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& min) {
@@ -203,6 +209,7 @@ protected:
   message_filters::Subscriber<sensor_msgs::PointCloud2>* m_pointCloudSub;
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
+   ros::ServiceServer m_addService;
   tf::TransformListener m_tfListener;
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;

@@ -185,6 +185,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f;
   f = boost::bind(&OctomapServer::reconfigureCallback, this, _1, _2);
   m_reconfigureServer.setCallback(f);
+
+  m_addService = m_nh.advertiseService("add_two_ints", &OctomapServer::add, this);
 }
 
 OctomapServer::~OctomapServer(){
@@ -725,6 +727,15 @@ bool OctomapServer::octomapFullSrv(OctomapSrv::Request  &req,
     return false;
 
   return true;
+}
+
+bool OctomapServer::add(octomap_msgs::TwoInts::Request  &req,
+                        octomap_msgs::TwoInts::Response &res)
+{
+   res.sum = req.a + req.b;
+   ROS_INFO("request: x=%ld, y=%ld", (long int)req.a, (long int)req.b);
+   ROS_INFO("sending back response: [%ld]", (long int)res.sum);
+   return true;
 }
 
 bool OctomapServer::clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp){

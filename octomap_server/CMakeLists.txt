@@ -36,6 +36,7 @@ set(octomap_INCLUDE_DIRS ${OCTOMAP_INCLUDE_DIRS})
 
 generate_dynamic_reconfigure_options(cfg/OctomapServer.cfg)
 
+
 catkin_package(
   INCLUDE_DIRS include ${octomap_INCLUDE_DIRS}
   LIBRARIES ${PROJECT_NAME}
@@ -93,6 +94,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.h"
   PATTERN ".svn" EXCLUDE
 )
+
 
 install(DIRECTORY launch/
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
