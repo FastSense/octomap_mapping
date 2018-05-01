@@ -187,6 +187,8 @@ OctomapServer::OctomapServer(ros::NodeHandle private_nh_)
   m_reconfigureServer.setCallback(f);
 
   m_addService = m_nh.advertiseService("add_two_ints", &OctomapServer::add, this);
+
+   m_layerService = m_nh.advertiseService("octomap_layer_srv", &OctomapServer::octomapLayerSrv, this);
 }
 
 OctomapServer::~OctomapServer(){
@@ -264,6 +266,7 @@ bool OctomapServer::openFile(const std::string& filename){
 void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud){
   ros::WallTime startTime = ros::WallTime::now();
 
+   last_stamp = cloud->header.stamp;
 
   //
   // ground filtering in base frame
@@ -735,6 +738,192 @@ bool OctomapServer::add(octomap_msgs::TwoInts::Request  &req,
    res.sum = req.a + req.b;
    ROS_INFO("request: x=%ld, y=%ld", (long int)req.a, (long int)req.b);
    ROS_INFO("sending back response: [%ld]", (long int)res.sum);
+   return true;
+}
+
+inline unsigned int to_int_with_res(float a, float a_min, float res) {
+    return (unsigned int)((a-a_min)/res);
+}
+
+
+bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
+                        octomap_msgs::OctomapLayer::Response &res)
+{
+
+   ROS_INFO("In octomapLayerSrv");
+
+   point3d o = pointMsgToOctomap(req.origin.position);
+   float r = req.resolution;
+    // o.x(), o.y(), o.z() = k*r;
+   unsigned int w = req.x_size;
+   unsigned int l = req.y_size;
+   unsigned int h = req.z_size;
+    float delta = 0.001;
+   float x_min = o.x() - (float)(w)*r/2;
+   float y_min = o.y() - (float)(l)*r/2;
+   float z_min = o.z() - (float)(h)*r/2;
+   float x_max = o.x() + (float)(w)*r/2;
+   float y_max = o.y() + (float)(l)*r/2;
+   float z_max = o.z() + (float)(h)*r/2;
+   point3d p3dmin(x_min, y_min, z_min);
+   point3d p3dmax(x_max, y_max, z_max);
+   unsigned char depth;
+
+   ROS_INFO("res: %f", r);
+   ROS_INFO("x_size: %ld", (long int)w);
+   ROS_INFO("y_size: %ld", (long int)l);
+   ROS_INFO("z_size: %ld", (long int)h);
+
+   ROS_INFO("x_o: %f", o.x());
+   ROS_INFO("y_o: %f", o.y());
+   ROS_INFO("z_o: %f", o.z());
+
+   ROS_INFO("x_min: %f", x_min);
+   ROS_INFO("y_min: %f", y_min);
+   ROS_INFO("z_min: %f", z_min);
+
+   ROS_INFO("x_max: %f", x_max);
+   ROS_INFO("y_max: %f", y_max);
+   ROS_INFO("z_max: %f", z_max);
+
+    ROS_INFO("depth: %d", m_octree->getTreeDepth());
+
+   for (depth = m_octree->getTreeDepth(); depth > 0; depth--) {
+      if (static_cast<float>(m_octree->getNodeSize(depth)) == r)
+         break;
+   }
+   if (depth == 0) {
+      ROS_ERROR("octomapLayerSrv: Depth = 0");
+      return false;
+   }
+    ROS_INFO("depth: %d", depth);
+    ROS_INFO("node size: %f", m_octree->getNodeSize(depth));
+
+   res.Message.header.frame_id = m_worldFrameId;
+   res.Message.header.stamp = last_stamp;
+   res.Message.info.resolution = r;
+   res.Message.info.width = w;
+   res.Message.info.height = l;
+   res.Message.info.origin = req.origin;
+
+   ROS_INFO("data size 1: %d", res.Message.data.size() );
+    res.Message.data.clear();
+   // set all grid values to unknown (128)
+   for (int i = 0; i<w*l; ++i)
+      res.Message.data.push_back(128);
+   ROS_INFO("data size 2: %d", res.Message.data.size() );
+
+
+
+
+    for (OcTreeT::leaf_bbx_iterator it = m_octree->begin_leafs_bbx(p3dmin, p3dmax, depth),
+           end = m_octree->end_leafs_bbx(); it != end; ++it) {
+        float x = (float)(it.getX());
+        float y = (float)(it.getY());
+        float z = (float)(it.getZ());
+//        unsigned int xn = (unsigned int)((x-x_min)/r);
+//        unsigned int yn = (unsigned int)((y-y_min)/r);
+        unsigned int xn = to_int_with_res(x,x_min,r);
+        unsigned int yn = to_int_with_res(y,y_min,r);
+
+
+
+        float size = it.getSize();
+        bool node_occupied = m_octree->isNodeOccupied(*it);
+
+        if (size == r) {
+
+            if ((x > x_min - delta) && (x < x_max + delta) &&
+                (y > y_min - delta) && (y < y_max + delta) &&
+                (z > y_min - delta) && (z < y_max + delta)) {
+//                ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)",x, y, it.getZ(), it.getSize(), it.getDepth());
+//                ROS_INFO("Size = r: (xn, yn) -> %d, %d", xn, yn);
+                if (node_occupied) {
+                    res.Message.data[yn*w + xn]= 255;
+                } else {
+                    if (res.Message.data[yn*w + xn] == -1) {
+                        res.Message.data[yn*l + xn] = 0;
+                    }
+               }
+            }
+
+        } else {
+            float xb_min = x - size/2;
+            float xb_max = x - size/2;
+            float yb_min = y - size/2;
+            float yb_max = y - size/2;
+
+            // find intersection between (x_min, x_max) and (xb_min, xb_max)
+            float x_inter_min = NAN;
+            float x_inter_max = NAN;
+            float y_inter_min = NAN;
+            float y_inter_max = NAN;
+
+            if ((xb_max > x_min - delta) && (xb_max < x_max + delta)) {
+                x_inter_max = xb_max;
+                x_inter_min = (xb_min < x_min - delta) ? x_min : xb_min;
+            } else if ((xb_min > x_min - delta) && (xb_min < x_max + delta)) {
+                x_inter_min = xb_min;
+                x_inter_max = (xb_max > x_max + delta) ? x_max : xb_max;
+            }
+            if ((yb_max > y_min - delta) && (yb_max < y_max + delta)) {
+                y_inter_max = yb_max;
+                y_inter_min = (yb_min < y_min - delta) ? y_min : yb_min;
+            } else if ((yb_min > y_min - delta) && (yb_min < y_max + delta)) {
+                y_inter_min = yb_min;
+                y_inter_max = (yb_max > y_max + delta) ? y_max : yb_max;
+            }
+
+            unsigned int xn_box_min = to_int_with_res(x_inter_min,x_min,r);
+            unsigned int xn_box_max = to_int_with_res(x_inter_max,x_min,r);
+            unsigned int yn_box_min = to_int_with_res(y_inter_min,y_min,r);
+            unsigned int yn_box_max = to_int_with_res(y_inter_max,y_min,r);
+
+//            ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)",x, y, it.getZ(), it.getSize(), it.getDepth());
+//            ROS_INFO("Size != r: (xn_box_min, xn_box_max, yn_box_min, yn_box_max) -> %d, %d, %d, %d", xn_box_min, xn_box_max, yn_box_min, yn_box_max);
+            for (unsigned int i = xn_box_min; i < xn_box_max; i++) {
+                for (unsigned int j = yn_box_min; j < yn_box_max; j++) {
+                    if (node_occupied) {
+                        res.Message.data[j*w + i] = 255;
+                    } else {
+                        if (res.Message.data[j*w + i] == -1) {
+                            res.Message.data[j*w + i] = 0;
+                        }
+                    }
+                }
+            }
+
+        }
+
+
+//      if ((x > x_min) && (x < x_max) &&
+//         (y > y_min) && (y < y_max) ) {
+//         ROS_INFO("(x,y) -> (%f,%f); (xn,yn) -> (%d,%d)", x, y, xn, yn);
+//
+//         //      if (m_octree->isNodeOccupied(*it)) {
+//         //         res.Message.data.assign(yn*w + xn, 100);
+//         //      } else {
+//         //         if (res.Message.data.at(yn*w + xn) == -1) {
+//         //            res.Message.data.assign(yn*l + xn, 0);
+//         //         }
+//         //      }
+//
+//         int8_t val;
+//         try {
+//            val = res.Message.data.at(yn * w + xn);
+//         }
+//         catch (const std::out_of_range &e) {
+//            ROS_ERROR("Out of range -> %d %d", xn, yn);
+//         }
+//      } else {
+//         ROS_INFO("Out of range -> (x,y) -> (%f,%f); (xn,yn) -> (%d,%d)", x, y, xn, yn);
+//      }
+   }
+
+//    ROS_INFO("data size 3: %d", res.Message.data.size() );
+
+
+
    return true;
 }
 

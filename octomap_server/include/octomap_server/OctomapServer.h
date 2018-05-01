@@ -67,6 +67,7 @@
 #include <octomap/OcTreeKey.h>
 
 #include "octomap_msgs/TwoInts.h"
+#include "octomap_msgs/OctomapLayer.h"
 
 //#define COLOR_OCTOMAP_SERVER // turned off here, turned on identical ColorOctomapServer.h - easier maintenance, only maintain OctomapServer and then copy and paste to ColorOctomapServer and change define. There are prettier ways to do this, but this works for now
 
@@ -102,6 +103,9 @@ public:
 
    virtual bool add(octomap_msgs::TwoInts::Request  &req,
                     octomap_msgs::TwoInts::Response &res);
+
+   virtual bool octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
+                                       octomap_msgs::OctomapLayer::Response &res);
 
 
 protected:
@@ -210,6 +214,7 @@ protected:
   tf::MessageFilter<sensor_msgs::PointCloud2>* m_tfPointCloudSub;
   ros::ServiceServer m_octomapBinaryService, m_octomapFullService, m_clearBBXService, m_resetService;
    ros::ServiceServer m_addService;
+   ros::ServiceServer m_layerService;
   tf::TransformListener m_tfListener;
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
@@ -264,6 +269,7 @@ protected:
   unsigned m_multires2DScale;
   bool m_projectCompleteMap;
   bool m_useColoredMap;
+   ros::Time last_stamp;
 };
 }
 
