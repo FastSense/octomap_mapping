@@ -744,7 +744,20 @@ bool OctomapServer::add(octomap_msgs::TwoInts::Request  &req,
 inline unsigned int to_int_with_res(float a, float a_min, float res) {
     return (unsigned int)((a-a_min)/res);
 }
+#define NODE_OCCUPIED   -128
+#define NODE_FREE       0
+#define NODE_UNKNOWN    127
 
+
+void checker_min(std::string name, float a, float a_min) {
+    if (a < a_min)
+        ROS_ERROR("%s = %f, %s_min = %f", name.c_str(), a, name.c_str(), a_min);
+}
+
+void checker_max(std::string name, float a, float a_max) {
+    if (a > a_max)
+        ROS_ERROR("%s = %f, %s_max = %f", name.c_str(), a, name.c_str(), a_max);
+}
 
 bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
                         octomap_msgs::OctomapLayer::Response &res)
@@ -810,7 +823,7 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
     res.Message.data.clear();
    // set all grid values to unknown (128)
    for (int i = 0; i<w*l; ++i)
-      res.Message.data.push_back(128);
+      res.Message.data.push_back(NODE_UNKNOWN);
    ROS_INFO("data size 2: %d", res.Message.data.size() );
 
 
@@ -823,6 +836,18 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
         float z = (float)(it.getZ());
 //        unsigned int xn = (unsigned int)((x-x_min)/r);
 //        unsigned int yn = (unsigned int)((y-y_min)/r);
+
+        checker_min("x", x, x_min);
+        checker_min("y", y, y_min);
+//        checker_min("z", z, z_min);
+
+        checker_max("x", x, x_max);
+        checker_max("y", y, y_max);
+//        checker_max("z", z, z_max);
+
+
+
+
         unsigned int xn = to_int_with_res(x,x_min,r);
         unsigned int yn = to_int_with_res(y,y_min,r);
 
@@ -833,61 +858,94 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
 
         if (size == r) {
 
-            if ((x > x_min - delta) && (x < x_max + delta) &&
-                (y > y_min - delta) && (y < y_max + delta) &&
-                (z > y_min - delta) && (z < y_max + delta)) {
+//            if ((x > x_min - delta) && (x < x_max + delta) &&
+//                (y > y_min - delta) && (y < y_max + delta) &&
+//                (z > z_min - delta) && (z < z_max + delta)) {
 //                ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)",x, y, it.getZ(), it.getSize(), it.getDepth());
 //                ROS_INFO("Size = r: (xn, yn) -> %d, %d", xn, yn);
                 if (node_occupied) {
-                    res.Message.data[yn*w + xn]= 255;
+                    res.Message.data[yn*w + xn]= NODE_OCCUPIED;
                 } else {
-                    if (res.Message.data[yn*w + xn] == -1) {
-                        res.Message.data[yn*l + xn] = 0;
+//                    ROS_INFO("!!! Node Free !!!");
+//                    ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)",x, y, it.getZ(), it.getSize(), it.getDepth());
+//                    ROS_INFO("Size = r: (xn, yn) -> %d, %d", xn, yn);
+//                    ROS_INFO("Message.data %d", res.Message.data[yn*w + xn]);
+                    if (res.Message.data[yn*w + xn] == NODE_UNKNOWN) {
+                        res.Message.data[yn*w + xn] = NODE_FREE;
+//                        ROS_INFO("Message.data %d", res.Message.data[yn*w + xn]);
                     }
                }
-            }
+//            }
 
-        } else {
+        }
+        else {
             float xb_min = x - size/2;
             float xb_max = x - size/2;
             float yb_min = y - size/2;
             float yb_max = y - size/2;
 
             // find intersection between (x_min, x_max) and (xb_min, xb_max)
-            float x_inter_min = NAN;
-            float x_inter_max = NAN;
-            float y_inter_min = NAN;
-            float y_inter_max = NAN;
+            float x_inter_min;
+            float x_inter_max;
+            float y_inter_min;
+            float y_inter_max;
 
-            if ((xb_max > x_min - delta) && (xb_max < x_max + delta)) {
+            bool x_ok  = false;
+            bool y_ok = false;
+
+            if ((xb_max > x_min) && (xb_max < x_max)) {
                 x_inter_max = xb_max;
-                x_inter_min = (xb_min < x_min - delta) ? x_min : xb_min;
-            } else if ((xb_min > x_min - delta) && (xb_min < x_max + delta)) {
+                x_inter_min = (xb_min < x_min) ? x_min : xb_min;
+                x_ok = true;
+            } else if ((xb_min > x_min) && (xb_min < x_max)) {
                 x_inter_min = xb_min;
-                x_inter_max = (xb_max > x_max + delta) ? x_max : xb_max;
+                x_inter_max = (xb_max > x_max) ? x_max : xb_max;
+                x_ok = true;
             }
-            if ((yb_max > y_min - delta) && (yb_max < y_max + delta)) {
+            if ((yb_max > y_min) && (yb_max < y_max)) {
                 y_inter_max = yb_max;
-                y_inter_min = (yb_min < y_min - delta) ? y_min : yb_min;
-            } else if ((yb_min > y_min - delta) && (yb_min < y_max + delta)) {
+                y_inter_min = (yb_min < y_min) ? y_min : yb_min;
+                y_ok = true;
+            } else if ((yb_min > y_min) && (yb_min < y_max)) {
                 y_inter_min = yb_min;
-                y_inter_max = (yb_max > y_max + delta) ? y_max : yb_max;
+                y_inter_max = (yb_max > y_max) ? y_max : yb_max;
+                y_ok = true;
             }
 
-            unsigned int xn_box_min = to_int_with_res(x_inter_min,x_min,r);
-            unsigned int xn_box_max = to_int_with_res(x_inter_max,x_min,r);
-            unsigned int yn_box_min = to_int_with_res(y_inter_min,y_min,r);
-            unsigned int yn_box_max = to_int_with_res(y_inter_max,y_min,r);
+//            if ((xb_max > x_min - delta) && (xb_max < x_max + delta)) {
+//                x_inter_max = xb_max;
+//                x_inter_min = (xb_min < x_min) ? x_min : xb_min;
+//            } else if ((xb_min > x_min - delta) && (xb_min < x_max + delta)) {
+//                x_inter_min = xb_min;
+//                x_inter_max = (xb_max > x_max + delta) ? x_max : xb_max;
+//            }
+//            if ((yb_max > y_min - delta) && (yb_max < y_max + delta)) {
+//                y_inter_max = yb_max;
+//                y_inter_min = (yb_min < y_min - delta) ? y_min : yb_min;
+//            } else if ((yb_min > y_min - delta) && (yb_min < y_max + delta)) {
+//                y_inter_min = yb_min;
+//                y_inter_max = (yb_max > y_max + delta) ? y_max : yb_max;
+//            }
 
-//            ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)",x, y, it.getZ(), it.getSize(), it.getDepth());
-//            ROS_INFO("Size != r: (xn_box_min, xn_box_max, yn_box_min, yn_box_max) -> %d, %d, %d, %d", xn_box_min, xn_box_max, yn_box_min, yn_box_max);
-            for (unsigned int i = xn_box_min; i < xn_box_max; i++) {
-                for (unsigned int j = yn_box_min; j < yn_box_max; j++) {
-                    if (node_occupied) {
-                        res.Message.data[j*w + i] = 255;
-                    } else {
-                        if (res.Message.data[j*w + i] == -1) {
-                            res.Message.data[j*w + i] = 0;
+            if (x_ok && y_ok) {
+
+                unsigned int xn_box_min = to_int_with_res(x_inter_min, x_min, r);
+                unsigned int xn_box_max = to_int_with_res(x_inter_max, x_min, r);
+                unsigned int yn_box_min = to_int_with_res(y_inter_min, y_min, r);
+                unsigned int yn_box_max = to_int_with_res(y_inter_max, y_min, r);
+
+//                ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)", x, y, it.getZ(), it.getSize(),
+//                         it.getDepth());
+//                ROS_INFO("Size != r: (xn_box_min, xn_box_max, yn_box_min, yn_box_max) -> %d, %d, %d, %d", xn_box_min,
+//                         xn_box_max, yn_box_min, yn_box_max);
+                for (unsigned int i = xn_box_min; i < xn_box_max; i++) {
+                    for (unsigned int j = yn_box_min; j < yn_box_max; j++) {
+                        if (node_occupied) {
+                            res.Message.data[j * w + i] = NODE_OCCUPIED;
+                        } else {
+                            if (res.Message.data[j * w + i] == NODE_UNKNOWN) {
+                                res.Message.data[j * w + i] = NODE_FREE;
+                            }
                         }
                     }
                 }
