@@ -454,7 +454,7 @@ void OctomapServer::insertScan(const tf::Point& sensorOriginTf, const PCLPointCl
 
   // TODO: eval lazy+updateInner vs. proper insertion
   // non-lazy by default (updateInnerOccupancy() too slow for large maps)
-  //m_octree->updateInnerOccupancy();
+//  m_octree->updateInnerOccupancy();
   octomap::point3d minPt, maxPt;
   ROS_DEBUG_STREAM("Bounding box keys (before): " << m_updateBBXMin[0] << " " <<m_updateBBXMin[1] << " " << m_updateBBXMin[2] << " / " <<m_updateBBXMax[0] << " "<<m_updateBBXMax[1] << " "<< m_updateBBXMax[2]);
 
@@ -778,8 +778,10 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
    float x_max = o.x() + (float)(w)*r/2;
    float y_max = o.y() + (float)(l)*r/2;
    float z_max = o.z() + (float)(h)*r/2;
-   point3d p3dmin(x_min, y_min, z_min);
-   point3d p3dmax(x_max, y_max, z_max);
+    point3d p3dmin(x_min, y_min, z_min);
+    point3d p3dmax(x_max, y_max, z_max);
+//   point3d p3dmin(x_min-margin, y_min-margin, z_min-margin);
+//   point3d p3dmax(x_max+margin, y_max+margin, z_max+margin);
    unsigned char depth;
 
    ROS_INFO("res: %f", r);
@@ -821,36 +823,18 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
 
    ROS_INFO("data size 1: %d", res.Message.data.size() );
     res.Message.data.clear();
-   // set all grid values to unknown (128)
+   // set all grid values to unknown
    for (int i = 0; i<w*l; ++i)
       res.Message.data.push_back(NODE_UNKNOWN);
    ROS_INFO("data size 2: %d", res.Message.data.size() );
 
 
 
-
-    for (OcTreeT::leaf_bbx_iterator it = m_octree->begin_leafs_bbx(p3dmin, p3dmax, depth),
-           end = m_octree->end_leafs_bbx(); it != end; ++it) {
-        float x = (float)(it.getX());
-        float y = (float)(it.getY());
+    for (OcTreeT::leaf_bbx_iterator it = m_octree->begin_leafs_bbx(p3dmin, p3dmax),
+             end = m_octree->end_leafs_bbx(); it != end; ++it) {
+        float x = (float) (it.getX());
+        float y = (float) (it.getY());
         float z = (float)(it.getZ());
-//        unsigned int xn = (unsigned int)((x-x_min)/r);
-//        unsigned int yn = (unsigned int)((y-y_min)/r);
-
-        checker_min("x", x, x_min);
-        checker_min("y", y, y_min);
-//        checker_min("z", z, z_min);
-
-        checker_max("x", x, x_max);
-        checker_max("y", y, y_max);
-//        checker_max("z", z, z_max);
-
-
-
-
-        unsigned int xn = to_int_with_res(x,x_min,r);
-        unsigned int yn = to_int_with_res(y,y_min,r);
-
 
 
         float size = it.getSize();
@@ -858,31 +842,22 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
 
         if (size == r) {
 
-//            if ((x > x_min - delta) && (x < x_max + delta) &&
-//                (y > y_min - delta) && (y < y_max + delta) &&
-//                (z > z_min - delta) && (z < z_max + delta)) {
-//                ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)",x, y, it.getZ(), it.getSize(), it.getDepth());
-//                ROS_INFO("Size = r: (xn, yn) -> %d, %d", xn, yn);
-                if (node_occupied) {
-                    res.Message.data[yn*w + xn]= NODE_OCCUPIED;
-                } else {
-//                    ROS_INFO("!!! Node Free !!!");
-//                    ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)",x, y, it.getZ(), it.getSize(), it.getDepth());
-//                    ROS_INFO("Size = r: (xn, yn) -> %d, %d", xn, yn);
-//                    ROS_INFO("Message.data %d", res.Message.data[yn*w + xn]);
-                    if (res.Message.data[yn*w + xn] == NODE_UNKNOWN) {
-                        res.Message.data[yn*w + xn] = NODE_FREE;
-//                        ROS_INFO("Message.data %d", res.Message.data[yn*w + xn]);
-                    }
-               }
-//            }
+            unsigned int xn = to_int_with_res(x, x_min, r);
+            unsigned int yn = to_int_with_res(y, y_min, r);
 
-        }
-        else {
-            float xb_min = x - size/2;
-            float xb_max = x - size/2;
-            float yb_min = y - size/2;
-            float yb_max = y - size/2;
+            if (node_occupied) {
+                res.Message.data[yn * w + xn] = NODE_OCCUPIED;
+            } else {
+                if (res.Message.data[yn * w + xn] == NODE_UNKNOWN) {
+                    res.Message.data[yn * w + xn] = NODE_FREE;
+                }
+            }
+
+        } else {
+            float xb_min = x - size / 2;
+            float xb_max = x + size / 2;
+            float yb_min = y - size / 2;
+            float yb_max = y + size / 2;
 
             // find intersection between (x_min, x_max) and (xb_min, xb_max)
             float x_inter_min;
@@ -890,7 +865,7 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
             float y_inter_min;
             float y_inter_max;
 
-            bool x_ok  = false;
+            bool x_ok = false;
             bool y_ok = false;
 
             if ((xb_max > x_min) && (xb_max < x_max)) {
@@ -912,21 +887,6 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
                 y_ok = true;
             }
 
-//            if ((xb_max > x_min - delta) && (xb_max < x_max + delta)) {
-//                x_inter_max = xb_max;
-//                x_inter_min = (xb_min < x_min) ? x_min : xb_min;
-//            } else if ((xb_min > x_min - delta) && (xb_min < x_max + delta)) {
-//                x_inter_min = xb_min;
-//                x_inter_max = (xb_max > x_max + delta) ? x_max : xb_max;
-//            }
-//            if ((yb_max > y_min - delta) && (yb_max < y_max + delta)) {
-//                y_inter_max = yb_max;
-//                y_inter_min = (yb_min < y_min - delta) ? y_min : yb_min;
-//            } else if ((yb_min > y_min - delta) && (yb_min < y_max + delta)) {
-//                y_inter_min = yb_min;
-//                y_inter_max = (yb_max > y_max + delta) ? y_max : yb_max;
-//            }
-
             if (x_ok && y_ok) {
 
                 unsigned int xn_box_min = to_int_with_res(x_inter_min, x_min, r);
@@ -934,12 +894,9 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
                 unsigned int yn_box_min = to_int_with_res(y_inter_min, y_min, r);
                 unsigned int yn_box_max = to_int_with_res(y_inter_max, y_min, r);
 
-//                ROS_INFO("node (x,y,z, size, depth) -> (%f, %f, %f, %f, %d)", x, y, it.getZ(), it.getSize(),
-//                         it.getDepth());
-//                ROS_INFO("Size != r: (xn_box_min, xn_box_max, yn_box_min, yn_box_max) -> %d, %d, %d, %d", xn_box_min,
-//                         xn_box_max, yn_box_min, yn_box_max);
                 for (unsigned int i = xn_box_min; i < xn_box_max; i++) {
                     for (unsigned int j = yn_box_min; j < yn_box_max; j++) {
+
                         if (node_occupied) {
                             res.Message.data[j * w + i] = NODE_OCCUPIED;
                         } else {
@@ -950,36 +907,8 @@ bool OctomapServer::octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
                     }
                 }
             }
-
         }
-
-
-//      if ((x > x_min) && (x < x_max) &&
-//         (y > y_min) && (y < y_max) ) {
-//         ROS_INFO("(x,y) -> (%f,%f); (xn,yn) -> (%d,%d)", x, y, xn, yn);
-//
-//         //      if (m_octree->isNodeOccupied(*it)) {
-//         //         res.Message.data.assign(yn*w + xn, 100);
-//         //      } else {
-//         //         if (res.Message.data.at(yn*w + xn) == -1) {
-//         //            res.Message.data.assign(yn*l + xn, 0);
-//         //         }
-//         //      }
-//
-//         int8_t val;
-//         try {
-//            val = res.Message.data.at(yn * w + xn);
-//         }
-//         catch (const std::out_of_range &e) {
-//            ROS_ERROR("Out of range -> %d %d", xn, yn);
-//         }
-//      } else {
-//         ROS_INFO("Out of range -> (x,y) -> (%f,%f); (xn,yn) -> (%d,%d)", x, y, xn, yn);
-//      }
-   }
-
-//    ROS_INFO("data size 3: %d", res.Message.data.size() );
-
+    }
 
 
    return true;
