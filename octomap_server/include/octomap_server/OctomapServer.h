@@ -66,8 +66,8 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
-#include "octomap_msgs/TwoInts.h"
 #include "octomap_msgs/OctomapLayer.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 
 //#define COLOR_OCTOMAP_SERVER // turned off here, turned on identical ColorOctomapServer.h - easier maintenance, only maintain OctomapServer and then copy and paste to ColorOctomapServer and change define. There are prettier ways to do this, but this works for now
 
@@ -101,11 +101,9 @@ public:
   virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
   virtual bool openFile(const std::string& filename);
 
-   virtual bool add(octomap_msgs::TwoInts::Request  &req,
-                    octomap_msgs::TwoInts::Response &res);
+//   virtual bool octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
+//                                       octomap_msgs::OctomapLayer::Response &res);
 
-   virtual bool octomapLayerSrv(octomap_msgs::OctomapLayer::Request  &req,
-                                       octomap_msgs::OctomapLayer::Response &res);
 
 
 protected:
@@ -134,6 +132,9 @@ protected:
   void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
+
+    virtual void publish_occupancy_map(const ros::Time& rostime = ros::Time::now());
+    void get_occupancy_map(octomap::point3d  &origin);
 
   /**
   * @brief update occupancy map with a scan labeled as ground and nonground.
@@ -219,6 +220,8 @@ protected:
   boost::recursive_mutex m_config_mutex;
   dynamic_reconfigure::Server<OctomapServerConfig> m_reconfigureServer;
 
+    ros::Publisher m_LocalMapPub;
+
   OcTreeT* m_octree;
   octomap::KeyRay m_keyRay;  // temp storage for ray casting
   octomap::OcTreeKey m_updateBBXMin;
@@ -227,6 +230,7 @@ protected:
   double m_maxRange;
   std::string m_worldFrameId; // the map frame
   std::string m_baseFrameId; // base of the robot for ground plane filtering
+    std::string droneFrameId;
   bool m_useHeightMap;
   std_msgs::ColorRGBA m_color;
   std_msgs::ColorRGBA m_colorFree;
@@ -270,6 +274,12 @@ protected:
   bool m_projectCompleteMap;
   bool m_useColoredMap;
    ros::Time last_stamp;
+
+    int local_map_x_size;
+    int local_map_y_size;
+    int local_map_z_size;
+
+    nav_msgs::OccupancyGrid LocalOccupancyMap;
 };
 }
 
