@@ -394,7 +394,16 @@ inline unsigned int to_int_with_res(float a, float a_min, float res) {
 
 void OctomapServer::get_occupancy_map(point3d &origin) {
 
-    ROS_INFO("In get_occupancy_map");
+    static bool first_run = true;
+
+    if (first_run) {
+        ROS_INFO("--------------------------------------------");
+        ROS_WARN("Occupancy map created");
+        ROS_INFO("--------------------------------------------");
+        first_run = false; 
+    }
+
+
 
     point3d o = origin;
     float r = m_res;
@@ -414,26 +423,26 @@ void OctomapServer::get_occupancy_map(point3d &origin) {
 //   point3d p3dmax(x_max+margin, y_max+margin, z_max+margin);
     unsigned char depth = m_octree->getTreeDepth();
 
-    ROS_INFO("res: %f", r);
-    ROS_INFO("x_size: %ld", (long int) w);
-    ROS_INFO("y_size: %ld", (long int) l);
-    ROS_INFO("z_size: %ld", (long int) h);
-
-    ROS_INFO("x_o: %f", o.x());
-    ROS_INFO("y_o: %f", o.y());
-    ROS_INFO("z_o: %f", o.z());
-
-    ROS_INFO("x_min: %f", x_min);
-    ROS_INFO("y_min: %f", y_min);
-    ROS_INFO("z_min: %f", z_min);
-
-    ROS_INFO("x_max: %f", x_max);
-    ROS_INFO("y_max: %f", y_max);
-    ROS_INFO("z_max: %f", z_max);
-
-    ROS_INFO("depth: %d", depth);
-
-    ROS_INFO("node size: %f", m_octree->getNodeSize(depth));
+//    ROS_INFO("res: %f", r);
+//    ROS_INFO("x_size: %ld", (long int) w);
+//    ROS_INFO("y_size: %ld", (long int) l);
+//    ROS_INFO("z_size: %ld", (long int) h);
+//
+//    ROS_INFO("x_o: %f", o.x());
+//    ROS_INFO("y_o: %f", o.y());
+//    ROS_INFO("z_o: %f", o.z());
+//
+//    ROS_INFO("x_min: %f", x_min);
+//    ROS_INFO("y_min: %f", y_min);
+//    ROS_INFO("z_min: %f", z_min);
+//
+//    ROS_INFO("x_max: %f", x_max);
+//    ROS_INFO("y_max: %f", y_max);
+//    ROS_INFO("z_max: %f", z_max);
+//
+//    ROS_INFO("depth: %d", depth);
+//
+//    ROS_INFO("node size: %f", m_octree->getNodeSize(depth));
     LocalOccupancyMap.data.clear();
     // set all grid values to unknown
     for (int i = 0; i < w * l; ++i)
