@@ -377,7 +377,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     ROS_DEBUG("Pointcloud insertion in OctomapServer done (%zu+%zu pts (ground/nonground), %f sec)", pc_ground.size(),
               pc_nonground.size(), total_elapsed);
 
-//  publishAll(cloud->header.stamp);
+    publishAll(cloud->header.stamp);
 //    if (m_LocalMapPub.getNumSubscribers() > 0)
     publish_occupancy_map(cloud->header.stamp);
 }
