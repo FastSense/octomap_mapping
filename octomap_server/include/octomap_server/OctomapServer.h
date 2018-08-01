@@ -69,6 +69,8 @@
 #include "octomap_msgs/OctomapLayer.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 
+#include <sensor_msgs/point_cloud2_iterator.h>
+
 //#define COLOR_OCTOMAP_SERVER // turned off here, turned on identical ColorOctomapServer.h - easier maintenance, only maintain OctomapServer and then copy and paste to ColorOctomapServer and change define. There are prettier ways to do this, but this works for now
 
 #ifdef COLOR_OCTOMAP_SERVER

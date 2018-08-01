@@ -288,11 +288,31 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
 
     last_stamp = cloud->header.stamp;
 
+    // decimate point cloud
+    PCLPointCloud pc; // input cloud for filtering and ground-detection
+
+    sensor_msgs::PointCloud2ConstIterator<float> in_x(*cloud, "x");
+    sensor_msgs::PointCloud2ConstIterator<float> in_y(*cloud, "y");
+    sensor_msgs::PointCloud2ConstIterator<float> in_z(*cloud, "z");
+
+    pcl::PointXYZ point_xyz;
+    for (int i = 0; i < cloud->height; ++i){
+        for (int j = 0; j < cloud->width; ++j, ++in_x, ++in_y, ++in_z) {
+            if ((!(i%4))&&(!(j%4))) {
+                point_xyz.x = *in_x;
+                point_xyz.y = *in_y;
+                point_xyz.z = *in_z;
+                pc.push_back(point_xyz);
+            }
+        }
+    }
+
+
     //
     // ground filtering in base frame
     //
-    PCLPointCloud pc; // input cloud for filtering and ground-detection
-    pcl::fromROSMsg(*cloud, pc);
+//    PCLPointCloud pc; // input cloud for filtering and ground-detection
+//    pcl::fromROSMsg(*cloud, pc);
 
     tf::StampedTransform sensorToWorldTf;
     try {
