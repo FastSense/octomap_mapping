@@ -298,7 +298,7 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
     pcl::PointXYZ point_xyz;
     for (int i = 0; i < cloud->height; ++i){
         for (int j = 0; j < cloud->width; ++j, ++in_x, ++in_y, ++in_z) {
-            if ((!(i%4))&&(!(j%4))) {
+            if ((!(i%8))&&(!(j%8))) {
                 point_xyz.x = *in_x;
                 point_xyz.y = *in_y;
                 point_xyz.z = *in_z;
@@ -321,6 +321,9 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
         ROS_ERROR_STREAM("Transform error of sensor data: " << ex.what() << ", quitting callback");
         return;
     }
+//    ROS_WARN("insertCloudCallback: m_worldFrameId -> %s", m_worldFrameId.c_str());
+//    ROS_WARN("insertCloudCallback: cloud->header.frame_id -> %s", cloud->header.frame_id.c_str());
+
 
     Eigen::Matrix4f sensorToWorld;
     pcl_ros::transformAsMatrix(sensorToWorldTf, sensorToWorld);
