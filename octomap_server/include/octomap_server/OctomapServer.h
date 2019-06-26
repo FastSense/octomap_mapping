@@ -66,7 +66,7 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
-#include "octomap_msgs/OctomapLayer.h"
+// #include "octomap_msgs/OctomapLayer.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 
 #include <sensor_msgs/point_cloud2_iterator.h>
